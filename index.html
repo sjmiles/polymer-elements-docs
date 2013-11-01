@@ -1,0 +1,3483 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="../polymer/polymer.js"></script>
+    
+    
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<script src="../more-elements/marked-js/marked.min.js"></script>
+<polymer-element name="marked-js" attributes="text" assetpath="../more-elements/marked-js/">
+  <script>
+    Polymer('marked-js', {
+      text: '',
+      allowAuthorStyles: true,
+      enteredView: function() {
+
+        marked.setOptions({
+          highlight: this.highlight.bind(this)
+        });
+        if (!this.text) {
+          this.text = this.textContent;
+        }
+      },
+      textChanged: function () {
+        this.innerHTML = marked(this.text.replace(/\\n/g, '\n'));
+      },
+      highlight: function(code, lang) {
+        return this.fire('marked-js-highlight', {code: code, lang: lang}).code || code;
+      }
+    });
+  </script>
+</polymer-element>
+
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-xhr can be used to perform XMLHttpRequests.
+ 
+ * Example:
+ *
+ *     <polymer-xhr id="xhr"></polymer-xhr>
+ *     ...
+ *     this.$.xhr.request({url: url, params: params, callback: callback});
+ *
+ * @class polymer-xhr
+ */
+-->
+<polymer-element name="polymer-xhr" assetpath="../polymer-elements/polymer-ajax/">
+  <template>
+    <style>
+      @host {
+        * {
+          display: none;
+        }
+      }
+    </style>
+  </template>
+  <script>
+    Polymer('polymer-xhr', {
+      makeReadyStateHandler: function(xhr, callback) {
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState == 4) {
+            callback && callback.call(null, xhr.response, xhr);
+          }
+        };
+      },
+      setRequestHeaders: function(xhr, headers) {
+        if (headers) {
+          for (var name in headers) {
+            xhr.setRequestHeader(name, headers[name]);
+          }
+        }
+      },
+      toQueryString: function(params) {
+        var r = [];
+        for (var n in params) {
+          var v = params[n];
+          n = encodeURIComponent(n);
+          r.push(v == null ? n : (n + '=' + encodeURIComponent(v)));
+        }
+        return r.join('&');
+      },
+      /**
+       * Sends a HTTP request to the server and returns the XHR object.
+       *
+       * @method request
+       * @param {Object} inOptions
+       *    @param {String} inOptions.url The url to which the request is sent.
+       *    @param {String} inOptions.method The HTTP method to use, default is GET.
+       *    @param {boolean} inOptions.sync By default, all requests are sent asynchronously.
+       *        To send synchronous requests, set to true.
+       *    @param {Object} inOptions.params Data to be sent to the server.
+       *    @param {Object} inOptions.body The content for the request body for POST method.
+       *    @param {Object} inOptions.headers HTTP request headers.
+       *    @param {String} inOptions.responseType The response type. Default is 'text'.
+       *    @param {Object} inOptions.callback Called when request is completed.
+       * @returns {Object} XHR object.
+       */
+      request: function(options) {
+        var xhr = new XMLHttpRequest();
+        var url = options.url;
+        var method = options.method || 'GET';
+        var async = !options.sync;
+        var params = this.toQueryString(options.params);
+        if (params && method == 'GET') {
+          url += (url.indexOf('?') > 0 ? '&' : '?') + params;
+        }
+        xhr.open(method, url, async);
+        if (options.responseType) {
+          xhr.responseType = options.responseType;
+        }
+        this.makeReadyStateHandler(xhr, options.callback);
+        this.setRequestHeaders(xhr, options.headers);
+        xhr.send(method == 'POST' ? (options.body || params) : null);
+        if (!async) {
+          xhr.onreadystatechange(xhr);
+        }
+        return xhr;
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-ajax can be used to perform XMLHttpRequests.
+ *
+ * Example:
+ *
+ *     <polymer-ajax auto url="http://gdata.youtube.com/feeds/api/videos/" 
+ *         params='{"alt":"json", "q":"chrome"}'
+ *         handleAs="json"
+ *         on-polymer-response="{{handleResponse}}">
+ *     </polymer-ajax>
+ *
+ * @class polymer-ajax
+ */
+/**
+ * Fired when a response is received.
+ * 
+ * @event polymer-response
+ */
+/**
+ * Fired when an error is received.
+ * 
+ * @event polymer-error
+ */
+/**
+ * Fired whenever a response or an error is received.
+ *
+ * @event polymer-complete
+ */
+-->
+
+
+<polymer-element name="polymer-ajax" attributes="url handleAs auto params response method" assetpath="../polymer-elements/polymer-ajax/">
+  <script>
+    Polymer('polymer-ajax', {
+      /**
+       * The URL target of the request.
+       * 
+       * @attribute url
+       * @type string
+       * @default ''
+       */
+      url: '',
+      /**
+       * Specifies what data to store in the 'response' property, and
+       * to deliver as 'event.response' in 'response' events.
+       * 
+       * One of:
+       * 
+       *    `text`: uses XHR.responseText
+       *    
+       *    `xml`: uses XHR.responseXML
+       *    
+       *    `json`: uses XHR.responseText parsed as JSON
+       *  
+       * @attribute handleAs
+       * @type string
+       * @default 'text'
+       */
+      handleAs: '',
+      /**
+       * If true, automatically performs an Ajax request when either url or params has changed.
+       *
+       * @attribute auto
+       * @type boolean
+       * @default false
+       */
+      auto: false,
+      /**
+       * Parameters to send to the specified URL, as JSON.
+       *  
+       * @attribute params
+       * @type string (JSON)
+       * @default ''
+       */
+      params: '',
+      /**
+       * Returns the response object.
+       *
+       * @attribute response
+       * @type Object
+       * @default null
+       */
+      response: null,
+      /**
+       * The HTTP method to use such as 'GET', 'POST', 'PUT', 'DELETE'.
+       * Default is 'GET'.
+       *
+       * @attribute method
+       * @type string
+       * @default ''
+       */
+      method: '',
+      ready: function() {
+        this.xhr = document.createElement('polymer-xhr');
+      },
+      receive: function(response, xhr) {
+        if (this.isSuccess(xhr)) {
+          this.processResponse(xhr);
+        } else {
+          this.error(xhr);
+        }
+        this.complete(xhr);
+      },
+      isSuccess: function(xhr) {
+        var status = xhr.status || 0;
+        return !status || (status >= 200 && status < 300);
+      },
+      processResponse: function(xhr) {
+        var response = this.evalResponse(xhr);
+        this.response = response;
+        this.fire('polymer-response', {response: response, xhr: xhr});
+      },
+      error: function(xhr) {
+        var response = xhr.status + ': ' + xhr.responseText;
+        this.fire('polymer-error', {response: response, xhr: xhr});
+      },
+      complete: function(xhr) {
+        this.fire('polymer-complete', {response: xhr.status, xhr: xhr});
+      },
+      evalResponse: function(xhr) {
+        return this[(this.handleAs || 'text') + 'Handler'](xhr);
+      },
+      xmlHandler: function(xhr) {
+        return xhr.responseXML;
+      },
+      textHandler: function(xhr) {
+        return xhr.responseText;
+      },
+      jsonHandler: function(xhr) {
+        var r = xhr.responseText;
+        try {
+          return JSON.parse(r);
+        } catch (x) {
+          return r;
+        }
+      },
+      urlChanged: function() {
+        if (!this.handleAs) {
+          var ext = String(this.url).split('.').pop();
+          switch (ext) {
+            case 'json':
+              this.handleAs = 'json';
+              break;
+          }
+        }
+        this.autoGo();
+      },
+      paramsChanged: function() {
+        this.autoGo();
+      },
+      autoChanged: function() {
+        this.autoGo();
+      },
+      // TODO(sorvell): multiple side-effects could call autoGo 
+      // during one micro-task, use a job to have only one action 
+      // occur
+      autoGo: function() {
+        if (this.auto) {
+          this.goJob = this.job(this.goJob, this.go, 0);
+        }
+      },
+      /**
+       * Performs an Ajax request to the url specified.
+       *
+       * @method go
+       */
+      go: function() {
+        var args = this.xhrArgs || {};
+        args.params = this.params || null;
+        if (args.params && typeof(args.params) == 'string') {
+          args.params = JSON.parse(args.params);
+        }
+        args.callback = this.receive.bind(this);
+        args.url = this.url;
+        args.method = this.method;
+        return args.url && this.xhr.request(args);
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * `<polymer-layout>` arranges nodes horizontally via absolution positioning.
+ * Set the `vertical` attribute (boolean) to arrange vertically instead.
+ * 
+ * `<polymer-layout>` arranges it's <b>sibling elements</b>, not
+ * it's children.
+ *
+ * One arranged node may be marked as elastic by giving it a `flex`
+ * attribute (boolean).
+ *
+ * You may remove a node from layout by giving it a `nolayout`
+ * attribute (boolean).
+ * 
+ * CSS Notes:
+ *
+ *  * `padding` is ignored on the parent node.
+ *  * `margin` is ignored on arranged nodes.
+ *  * `min-width` is ignored on arranged nodes, use `min-width` on the parent node
+ *    instead.
+ *
+ * Example: 
+ *
+ * Arrange three `div` into columns. `flex` attribute on Column Two makes that
+ * column elastic.
+ *
+ *      <polymer-layout></polymer-layout>
+ *      <div>Column One</div>
+ *      <div flex>Column Two</div>
+ *      <div>Column Three</div>
+ *
+ *  Remember that `<polymer-layout>` arranges it's sibling elements, not it's children.
+ *
+ * If body has width 52 device pixels (in this case, ascii characters), call that 52px.
+ * Column One has it's natural width of 12px (including border), Column Three has it's
+ * natural width of 14px, body border uses 2px, and Column Two automatically uses the
+ * remaining space: 24px.
+ *
+ *      |-                    52px                        -| 
+ *      ----------------------------------------------------
+ *      ||Column One||      Column Two      ||Column Three||
+ *      ----------------------------------------------------
+ *       |-  12px  -||-     (24px)         -||    14px   -|
+ *
+ * As the parent node resizes, the elastic column reacts via CSS to adjust it's size.
+ * No javascript is used during parent resizing, for best performance. 
+ *
+ * Changes in content or sibling size is not handled automatically. 
+ *
+ *      ----------------------------------------------------------------
+ *      ||Column One|             Column Two             |Column Three||
+ *      ----------------------------------------------------------------
+ *
+ *      --------------------------------------
+ *      ||Column One|Column Two|Column Three||
+ *      --------------------------------------
+ *
+ * Arrange in rows by adding the `vertical` attribute.
+ *
+ * Example:
+ *
+ *      <polymer-layout vertical></polymer-layout>
+ *      <div>Row One</div>
+ *      <div flex>Row Two</div>
+ *      <div>Row Three</div>
+ *
+ * This setup will cause Row Two to stretch to fill the container.
+ *
+ *      -----------             -----------
+ *      |---------|             |---------|
+ *      |         |             |         |
+ *      |Row One  |             |Row One  |
+ *      |         |             |         |
+ *      |---------|             |---------|
+ *      |         |             |         |
+ *      |Row Two  |             |Row Two  |
+ *      |         |             |         |
+ *      |---------|             |         |
+ *      |         |             |         |
+ *      |Row Three|             |         |
+ *      |         |             |---------|
+ *      |---------|             |         |
+ *      -----------             |Row Three|
+ *                              |         |
+ *                              |---------|
+ *                              |---------|
+ *
+ * Layouts can be nested arbitrarily.
+ *
+ *      <polymer-layout></polymer-layout>
+ *      <div>Menu</div>
+ *      <div flex>
+ *         <polymer-layout vertical></polymer-layout>
+ *         <div>Title</div>
+ *         <div>Toolbar</div>
+ *         <div flex>Main</div>
+ *         <div>Footer</div>
+ *      </div>
+ *
+ * Renders something like this
+ *
+ *      --------------------------------
+ *      ||Menu     ||Title            ||
+ *      ||         ||-----------------||
+ *      ||         ||Toolbar          ||
+ *      ||         ||-----------------||
+ *      ||         ||Main             ||
+ *      ||         ||                 ||
+ *      ||         ||-----------------||
+ *      ||         ||Footer           ||
+ *      --------------------------------
+ *
+ * @class polymer-layout
+ *
+ */
+-->
+<polymer-element name="polymer-layout" attributes="vertical" assetpath="../polymer-elements/polymer-layout/">
+  <template>
+    <style>
+      @host {
+        * {
+          display: none;
+        }
+      }
+    </style>
+  </template>
+  <script>
+    Polymer('polymer-layout', {
+      vertical: false,
+      ready: function() {
+        this.setAttribute('nolayout', '');
+      },
+      enteredView: function() {
+        this.asyncMethod(function() {
+          this.prepare();
+          this.layout();
+        });
+      },
+      prepare: function() {
+        var parent = this.parentNode.host || this.parentNode;
+        // may recalc
+        var cs = window.getComputedStyle(parent);
+        if (cs.position === 'static') {
+          parent.style.position = 'relative';
+        }
+        //parent.style.overflow = 'hidden';
+        // changes will cause another recalc at next validation step
+        var vertical;
+        this.parentNode.childNodes.array().forEach(function(c, i) {
+          if (c.nodeType === Node.ELEMENT_NODE && !c.hasAttribute('nolayout')) {
+            stylize(c, {
+              position: 'absolute',
+              boxSizing: 'border-box',
+              MozBoxSizing: 'border-box',
+            });
+            // test for auto-vertical
+            if (vertical === undefined) {
+              vertical = (c.offsetWidth == 0 && c.offsetHeight !== 0);
+            }
+          }
+        });
+        this.vertical = this.vertical || vertical;
+      },
+      /**
+       * Arrange sibling nodes end-to-end in one dimension.
+       *
+       * Arrangement is horizontal unless the `vertical`
+       * attribute is applied on this node.
+       *
+       * @method layout
+       */
+      layout: function() {
+        var parent = this.parentNode.host || this.parentNode;
+        var vertical = this.vertical;
+        var ww = 0, hh = 0, pre = [], fit, post = [];
+        var list = pre;
+        // gather element information (at most one recalc)
+        this.parentNode.childNodes.array().forEach(function(c, i) {
+          if (c.nodeType===Node.ELEMENT_NODE && !c.hasAttribute('nolayout')) {
+            var info = {
+              element: c,
+              w: c.offsetWidth,
+              h: c.offsetHeight
+            };
+            if (!c.hasAttribute('fit') && !c.hasAttribute('flex')) {
+              ww += c.offsetWidth;
+              hh += c.offsetHeight;
+              list.push(info);
+            } else {
+              fit = c;
+              list = post;
+              ww = hh = 0;
+            }
+          }
+        });
+        // update layout styles (invalidate, no recalc)
+        var v = 0;
+        var mxp = 0, myp = 0;
+        pre.forEach(function(info) {
+          if (vertical) {
+            stylize(info.element, {
+              top: v + 'px', right: mxp, height: info.h + 'px', left: mxp
+            });
+          } else {
+            stylize(info.element, {
+              top: myp, width: info.w + 'px', bottom: myp, left: v + 'px'
+            });
+          }
+          v += vertical ? info.h : info.w;
+        });
+        if (fit) {
+          if (vertical) {
+            stylize(fit, {
+              top: v + 'px', right: mxp, bottom: hh + 'px', left: mxp
+            });
+          } else {
+            stylize(fit, {
+              top: myp, right: ww + 'px', bottom: myp, left: v + 'px'
+            });
+          }
+          v = vertical ? hh : ww;
+          post.forEach(function(info) {
+            v -= vertical ? info.h : info.w;
+            if (vertical) {
+              stylize(info.element, {
+                height: info.h + 'px', right: mxp, bottom: v + 'px', left: mxp
+              });
+            } else {
+              stylize(info.element, {
+                top: myp, right: v + 'px', bottom: myp, width: info.w + 'px'
+              });
+            }
+          });
+        }
+      }
+    });
+    function stylize(element, styles) {
+      var style = element.style;
+      Object.keys(styles).forEach(function(k){
+        style[k] = styles[k];
+      });
+    }
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-flex-layout provides a helper to use CSS3 Flexible Boxes.  By putting
+ * polymer-flex-layout inside an element it makes the element a flex
+ * container. Use 'flex' attribute to make the flex item flexible.
+ *
+ * Example:
+ *
+ *     <div>
+ *       <polymer-flex-layout></polymer-flex-layout>
+ *       <div>Left</div>
+ *       <div flex>Main</div>
+ *       <div>Right</div>
+ *     </div>
+ *
+ *     ---------------------------------
+ *     |-------------------------------|
+ *     ||Left|       Main       |Right||
+ *     |-------------------------------|
+ *     ---------------------------------
+ *
+ *     <div>
+ *       <polymer-flex-layout vertical></polymer-flex-layout>
+ *       <div>Header</div>
+ *       <div flex>Body</div>
+ *       <div>Footer</div>
+ *     </div>
+ *
+ *     ----------
+ *     ||------||
+ *     ||Header||
+ *     ||------||
+ *     ||Body  ||
+ *     ||      ||
+ *     ||      ||
+ *     ||      ||
+ *     ||      ||
+ *     ||      ||
+ *     ||      ||
+ *     ||------||
+ *     ||Footer||
+ *     ||------||
+ *     ----------
+ *
+ * @class polymer-flex-layout
+ */
+/**
+ * If true, flex items are aligned vertically.
+ *
+ * @attribute vertical
+ * @type boolean
+ * @default false
+ */
+/**
+ * Defines the default for how flex items are laid out along the cross axis on 
+ * the current line.  Possible values are 'start', 'center' and 'end'.
+ *
+ * @attribute align
+ * @type string
+ * @default ''
+ */
+/**
+ * Defines how flex items are laid out along the main axis on the current line.
+ * Possible values are 'start', 'center' and 'end'.
+ *
+ * @attribute justify
+ * @type string
+ * @default ''
+ */
+/**
+ * If true, polymer-flex-layout is the flex container.
+ *
+ * Example:
+ *
+ *     <polymer-flex-layout isContainer>
+ *       <div>Left</div>
+ *       <div flex>Main</div>
+ *       <div>Right</div>
+ *     </polymer-flex-layout>
+ *
+ *     ---------------------------------
+ *     |-------------------------------|
+ *     ||Left|       Main       |Right||
+ *     |-------------------------------|
+ *     ---------------------------------
+ *
+ * @attribute isContainer
+ * @type boolean
+ * @default false
+ */
+-->
+<polymer-element name="polymer-flex-layout" attributes="vertical align justify isContainer" assetpath="../polymer-elements/polymer-flex-layout/">
+  <template>
+    <style polymer-scope="controller">/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+.flexbox, [flexbox], [h-flexbox], [v-flexbox] {
+  display: -webkit-box !important;
+  display: -ms-flexbox !important;
+  display: -moz-flex !important;
+  display: -webkit-flex !important;
+  display: flex !important;
+}
+
+.flexbox.row, [flexbox], [h-flexbox] {
+  -webkit-box-orient: horizontal;
+  -ms-flex-direction: row;
+  -moz-flex-direction: row;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+}
+
+.flexbox.column, [v-flexbox] {
+  -webkit-box-orient: vertical;
+  -ms-flex-direction: column;
+  -moz-flex-direction: column;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+.flex, [flex], [fit] {
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  -moz-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+}
+
+::-webkit-distributed(.flex), 
+::-webkit-distributed([flex]),
+::-webkit-distributed([fit]) {
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  -moz-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+}
+
+.flexbox.align-start {
+  -webkit-box-align: start;
+  -ms-flex-align: start;
+  -moz-align-items: flex-start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+}
+
+.flexbox.align-end {
+  -webkit-box-align: end;
+  -ms-flex-align: end;
+  -moz-align-items: flex-end;
+  -webkit-align-items: flex-end;
+  align-items: flex-end;
+}
+
+.flexbox.align-center {
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  -moz-align-items: center;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.flexbox.justify-start {
+  -webkit-box-pack: start;
+  -ms-flex-pack: start;
+  -moz-justify-content: flex-start;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
+}
+
+.flexbox.justify-end {
+  -webkit-box-pack: end;
+  -ms-flex-pack: end;
+  -moz-justify-content: flex-end;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+.flexbox.justify-center {
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  -moz-justify-content: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+.flexbox.justify-between {
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
+  -moz-justify-content: space-between;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+}
+
+@host {
+  .flexbox, [flexbox], [h-flexbox], [v-flexbox] {
+    display: -webkit-box !important;
+    display: -ms-flexbox !important;
+    display: -moz-flex !important;
+    display: -webkit-flex !important;
+    display: flex !important;
+  }
+  
+  .flexbox.row, [flexbox], [h-flexbox] {
+    -webkit-box-orient: horizontal;
+    -ms-flex-direction: row;
+    -moz-flex-direction: row;
+    -webkit-flex-direction: row;
+    flex-direction: row;
+  }
+  
+  .flexbox.column, [v-flexbox] {
+    -webkit-box-orient: vertical;
+    -ms-flex-direction: column;
+    -moz-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+  
+  .flexbox.align-start {
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    -moz-align-items: flex-start;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+  }
+  
+  .flexbox.align-end {
+    -webkit-box-align: end;
+    -ms-flex-align: end;
+    -moz-align-items: flex-end;
+    -webkit-align-items: flex-end;
+    align-items: flex-end;
+  }
+  
+  .flexbox.align-center {
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -moz-align-items: center;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+  
+  .flexbox.justify-start {
+    -webkit-box-pack: start;
+    -ms-flex-pack: start;
+    -moz-justify-content: flex-start;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+  }
+  
+  .flexbox.justify-end {
+    -webkit-box-pack: end;
+    -ms-flex-pack: end;
+    -moz-justify-content: flex-end;
+    -webkit-justify-content: flex-end;
+    justify-content: flex-end;
+  }
+  
+  .flexbox.justify-center {
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    -moz-justify-content: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+  }
+  
+  .flexbox.justify-between {
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    -moz-justify-content: space-between;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+  }
+}
+</style>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+.flexbox, [flexbox], [h-flexbox], [v-flexbox] {
+  display: -webkit-box !important;
+  display: -ms-flexbox !important;
+  display: -moz-flex !important;
+  display: -webkit-flex !important;
+  display: flex !important;
+}
+
+.flexbox.row, [flexbox], [h-flexbox] {
+  -webkit-box-orient: horizontal;
+  -ms-flex-direction: row;
+  -moz-flex-direction: row;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+}
+
+.flexbox.column, [v-flexbox] {
+  -webkit-box-orient: vertical;
+  -ms-flex-direction: column;
+  -moz-flex-direction: column;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+.flex, [flex], [fit] {
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  -moz-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+}
+
+::-webkit-distributed(.flex), 
+::-webkit-distributed([flex]),
+::-webkit-distributed([fit]) {
+  -webkit-box-flex: 1;
+  -ms-flex: 1;
+  -moz-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+}
+
+.flexbox.align-start {
+  -webkit-box-align: start;
+  -ms-flex-align: start;
+  -moz-align-items: flex-start;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+}
+
+.flexbox.align-end {
+  -webkit-box-align: end;
+  -ms-flex-align: end;
+  -moz-align-items: flex-end;
+  -webkit-align-items: flex-end;
+  align-items: flex-end;
+}
+
+.flexbox.align-center {
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  -moz-align-items: center;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.flexbox.justify-start {
+  -webkit-box-pack: start;
+  -ms-flex-pack: start;
+  -moz-justify-content: flex-start;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
+}
+
+.flexbox.justify-end {
+  -webkit-box-pack: end;
+  -ms-flex-pack: end;
+  -moz-justify-content: flex-end;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+.flexbox.justify-center {
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  -moz-justify-content: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+.flexbox.justify-between {
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
+  -moz-justify-content: space-between;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+}
+
+@host {
+  .flexbox, [flexbox], [h-flexbox], [v-flexbox] {
+    display: -webkit-box !important;
+    display: -ms-flexbox !important;
+    display: -moz-flex !important;
+    display: -webkit-flex !important;
+    display: flex !important;
+  }
+  
+  .flexbox.row, [flexbox], [h-flexbox] {
+    -webkit-box-orient: horizontal;
+    -ms-flex-direction: row;
+    -moz-flex-direction: row;
+    -webkit-flex-direction: row;
+    flex-direction: row;
+  }
+  
+  .flexbox.column, [v-flexbox] {
+    -webkit-box-orient: vertical;
+    -ms-flex-direction: column;
+    -moz-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+  
+  .flexbox.align-start {
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    -moz-align-items: flex-start;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+  }
+  
+  .flexbox.align-end {
+    -webkit-box-align: end;
+    -ms-flex-align: end;
+    -moz-align-items: flex-end;
+    -webkit-align-items: flex-end;
+    align-items: flex-end;
+  }
+  
+  .flexbox.align-center {
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -moz-align-items: center;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+  
+  .flexbox.justify-start {
+    -webkit-box-pack: start;
+    -ms-flex-pack: start;
+    -moz-justify-content: flex-start;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+  }
+  
+  .flexbox.justify-end {
+    -webkit-box-pack: end;
+    -ms-flex-pack: end;
+    -moz-justify-content: flex-end;
+    -webkit-justify-content: flex-end;
+    justify-content: flex-end;
+  }
+  
+  .flexbox.justify-center {
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+    -moz-justify-content: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+  }
+  
+  .flexbox.justify-between {
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+    -moz-justify-content: space-between;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+  }
+}
+</style>
+    <content></content>
+  </template>
+  <script>
+    Polymer('polymer-flex-layout', {
+      vertical: false,
+      isContainer: false,
+      layoutContainer: null,
+      enteredView: function() {
+        this.installControllerStyles();
+        this.layoutContainer = this.isContainer ? 
+            this : (this.parentNode.host || this.parentNode);
+        this.verticalChanged();
+        this.alignChanged();
+        this.justifyChanged();
+      },
+      leftView: function() {
+        this.layoutContainer = null;
+      },
+      layoutContainerChanged: function(old) {
+        if (old) {
+          old.classList.remove('flexbox');
+        }
+        this.style.display = this.layoutContainer === this ? '' : 'none';
+        if (this.layoutContainer) {
+          this.layoutContainer.classList.add('flexbox');
+        }
+      },
+      switchContainerClass: function(prefix, old, name) {
+        if (this.layoutContainer && name) {
+          this.layoutContainer.classList.switch(
+              prefix + old, prefix + name);
+        }
+      },
+      verticalChanged: function() {
+        if (this.layoutContainer) {
+          this.layoutContainer.classList.toggle('column', this.vertical);
+        }
+      },
+      alignChanged: function(old) {
+        this.switchContainerClass('align-', old, this.align);
+      },
+      justifyChanged: function(old) {
+        this.switchContainerClass('justify-', old, this.justify);
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-media-query can be used to data bind to a CSS media query.
+ * The "query" property is a bare CSS media query.
+ * The "queryMatches" property will be a boolean representing if the page matches that media query.
+ *
+ * polymer-media-query uses media query listeners to dynamically update the "queryMatches" property.
+ * A "polymer-mediachange" event also fires when queryMatches changes.
+ *
+ * Example:
+ *
+ *      <polymer-media-query query="max-width: 640px" queryMatches="{{phoneScreen}}"></polymer-media-query>
+ *
+ * @class polymer-media-query
+ */
+-->
+<polymer-element name="polymer-media-query" attributes="query queryMatches" assetpath="../polymer-elements/polymer-media-query/">
+  <template>
+    <style>
+      @host {
+        * {
+          display: none;
+        }
+      }
+    </style>
+  </template>
+  <script>
+
+    Polymer('polymer-media-query', {
+      /**
+       * The Boolean return value of the media query
+       * @attribute queryMatches
+       * @type Boolean
+       * @default false
+       */
+      queryMatches: false,
+      /**
+       * The CSS media query to evaulate
+       * @attribute query
+       * @type string
+       * @default ''
+       */
+      query: '',
+      ready: function() {
+        this._mqHandler = this.queryHandler.bind(this);
+        this._mq = null;
+      },
+      queryChanged: function() {
+        if (this._mq) {
+          this._mq.removeListener(this._mqHandler);
+        }
+        var query = this.query;
+        if (query[0] !== '(') {
+          query = '(' + this.query + ')';
+        }
+        this._mq = window.matchMedia(query);
+        this._mq.addListener(this._mqHandler);
+        this.queryHandler(this._mq);
+      },
+      queryHandler: function(mq) {
+        this.queryMatches = mq.matches;
+        this.asyncFire('polymer-mediachange', mq);
+      }
+    });
+  </script>
+</polymer-element>
+
+<polymer-element name="polymer-grid-layout" attributes="nodes layout auto" assetpath="../polymer-elements/polymer-grid-layout/">
+  <template>
+  </template>
+  <script>
+    (function() {
+      Polymer('polymer-grid-layout', {
+        nodes: null,
+        layout: null,
+        auto: false,
+        nodesChanged: function() {
+          this.invalidate();
+        },
+        layoutChanged: function() {
+          this.invalidate();
+        },
+        autoNodes: function() {
+          this.nodes = this.parentNode.children.array().filter(
+            function(node) {
+              switch(node.localName) {
+                case 'polymer-grid-layout':
+                case 'style':
+                  return false;
+              }
+              return true;
+            }
+          );
+        },
+        invalidate: function() {
+          if (this.layout) {
+            // job debounces layout, only letting it occur every N ms
+            this.layoutJob = this.job(this.layoutJob, this.relayout);
+          }
+        },
+        relayout: function() {
+          if (!this.nodes || this.auto) {
+            this.autoNodes();
+          }
+          layout(this.layout, this.nodes);
+          this.asyncFire('polymer-grid-layout');
+        }
+      });
+
+      //
+
+      var lineParent;
+
+      function line(axis, p, d) {
+        var l = document.createElement('line');
+        var extent = (axis === 'left' ? 'width' : 
+          (axis === 'top' ? 'height' : axis));
+        l.setAttribute('extent', extent);
+        if (d < 0) {
+          axis = (axis === 'left' ? 'right' : 
+            (axis === 'top' ? 'bottom' : axis));
+        }
+        p = Math.abs(p);
+        l.style[axis] = p + 'px';
+        l.style[extent] = '0px';
+        lineParent.appendChild(l);
+      }
+
+      var colCount, colOwners, rowCount, rowOwners;
+
+      function matrixillate(matrix) {
+        // mesaure the matrix, must be rectangular
+        rowCount = matrix.length;
+        colCount = rowCount && matrix[0].length || 0;
+        // transpose matrix
+        var transpose = [];
+        for (var i=0; i<colCount; i++) {
+          var c = [];
+          for (var j=0; j<rowCount; j++) {
+            c.push(matrix[j][i]);
+          }
+          transpose.push(c);
+        }
+        // assign sizing control
+        colOwners = findOwners(matrix);
+        rowOwners = findOwners(transpose);
+        //console.log('colOwners', colOwners);
+        //console.log('rowOwners', rowOwners);
+      }
+
+      function findOwners(matrix) {
+        var majCount = matrix.length;
+        var minCount = majCount && matrix[0].length || 0;
+        var owners = [];
+        // for each column (e.g.)
+        for (var i=0; i<minCount; i++) {
+          // array of contained areas
+          var contained = {};
+          // look at each row to find a containing area
+          for (var j=0; j<majCount; j++) {
+            // get the row vector
+            var vector = matrix[j]
+            // node index at [i,j]
+            var nodei = vector[i];
+            // if a node is there
+            if (nodei) {
+              // determine if it bounds this column
+              var owns = false;
+              if (i === 0) {
+                owns = (i === minCount-1) || (nodei !== vector[i+1]);
+              } else if (i === minCount - 1) {
+                owns = (i === 0) || (nodei !== vector[i-1]);
+              } else {
+                owns = nodei !== vector[i-1] && nodei !== vector[i+1];
+              }
+              if (owns) {
+                contained[nodei] = 1;
+              }
+            }
+            // store the owners for this column
+            owners[i] = contained;
+          }
+        }
+        return owners;
+      }
+
+      var nodes;
+
+      function colWidth(i) {
+        for (var col in colOwners[i]) {
+          col = Number(col);
+          if (col === 0) {
+            return 96;
+          }
+          var node = nodes[col - 1];
+          if (node.hasAttribute('h-flex') || node.hasAttribute('flex')) {
+            return -1;
+          }
+          var w = node.offsetWidth;
+          //console.log('colWidth(' + i + ') ==', w);
+          return w;
+        }
+        return -1;
+      }
+
+      function rowHeight(i) {
+        for (var row in rowOwners[i]) {
+          row = Number(row);
+          if (row === 0) {
+            return 96;
+          }
+          var node = nodes[row - 1];
+          if (node.hasAttribute('v-flex') || node.hasAttribute('flex')) {
+            return -1;
+          }
+          var h = node.offsetHeight;
+          //console.log('rowHeight(' + i + ') ==', h);
+          return h;
+        }
+        return -1;
+      }
+
+      var m = 0;
+
+      function railize(count, sizeFn) {
+        //
+        // create rails for `count` tracks using 
+        // sizing function `sizeFn(trackNo)`
+        //
+        // for n tracks there are (n+1) rails
+        //
+        //   |track|track|track|
+        //  0|->sz0|->sz1|<-sz2|0
+        //
+        //   |track|track|track|
+        //  0|->sz0|     |<-sz2|0
+        //
+        // there can be one elastic track per set
+        //
+        //   |track|track|track|track|
+        //  0|-->s0|-->s1|<--s1|<--s2|0
+        //
+        // sz1 spans multiple  tracks which makes
+        // it elastic (it's underconstrained)
+        //
+        var rails = [];
+        var a = 0;
+        for (var i=0, x; i<count; i++) {
+          rails[i] = {p: a, s: 1};
+          x = sizeFn(i) + m + m;
+          if (x == -1) {
+            break;
+          }
+          a += x;
+        }
+        if (i === count) {
+          rails[i] = {p: 0, s: -1};
+        }
+        var b = 0;
+        for (var ii=count, x; ii>i; ii--) {
+          rails[ii] = {p: b, s: -1};
+          x = sizeFn(ii - 1) + m + m;
+          if (x !== -1) {
+            b += x;
+          }
+        }
+        return rails;
+      }
+
+      // TODO(sjmiles): this code tries to preserve actual position,
+      // so 'unposition' is really 'naturalize' or something
+      function unposition(box) {
+        var style = box.style;
+        //style.right = style.bottom = style.width = style.height = '';
+        style.position = 'absolute';
+        style.display = 'inline-block';
+        style.boxSizing = style.mozBoxSizing = 'border-box';
+      }
+
+      function _position(style, maj, min, ext, a, b) {
+        style[maj] = style[min] = '';
+        style[ext] = 'auto';
+        if (a.s < 0 && b.s < 0) {
+          var siz = a.p - b.p - m - m;
+          style[ext] = siz + 'px';
+          var c = 'calc(100% - ' + (b.p + siz + m) + 'px' + ')';
+          style[maj] = '-webkit-' + c;
+          style[maj] = c;
+        } else if (b.s < 0) {
+          style[maj] = a.p + m + 'px';
+          style[min] = b.p + m + 'px';
+        } else {
+          style[maj] = a.p + m + 'px';
+          style[ext] = b.p - a.p - m - m + 'px';
+        }
+      }
+
+      function position(elt, left, right, top, bottom) {
+        _position(elt.style, 'top', 'bottom', 'height', rows[top], 
+            rows[bottom]);
+        _position(elt.style, 'left', 'right', 'width', columns[left], 
+            columns[right]);
+      }
+
+      function layout(matrix, anodes, alineParent) {
+        //console.group('layout');
+
+        lineParent = alineParent;
+        nodes = anodes;
+        matrixillate(matrix);
+
+        nodes.forEach(unposition);
+
+        columns = railize(colCount, colWidth);
+        rows = railize(rowCount, rowHeight);
+
+        if (alineParent) {
+          //console.group('column rails');
+          columns.forEach(function(c) {
+            //console.log(c.p, c.s);
+            line('left', c.p, c.s);
+          });
+          //console.groupEnd();
+
+          //console.group('row rails');
+          rows.forEach(function(r) {
+            //console.log(r.p, r.s);
+            line('top', r.p, r.s);
+          });
+          //console.groupEnd();
+        }
+
+        //console.group('rail boundaries');
+        nodes.forEach(function(node, i) {
+          // node indices are 1-based
+          var n = i + 1;
+          // boundary rails
+          var l, r, t = 1e10, b = -1e10;
+          matrix.forEach(function(vector, i) {
+            var f = vector.indexOf(n);
+            if (f > -1) {
+              l = f;
+              r = vector.lastIndexOf(n) + 1;
+              t = Math.min(t, i);
+              b = Math.max(b, i) + 1;
+            }
+          });
+          if (l == undefined) {
+            //console.log('unused');
+            node.style.position = 'absolute';
+            var offscreen = node.getAttribute('offscreen');
+            switch (offscreen) {
+              case 'basement':
+                node.style.zIndex = 0;
+                break;
+              case 'left':
+              case 'top':
+                node.style[offscreen] = node.offsetWidth * -2 + 'px';
+                break;
+              case 'right':
+                node.style.left = node.offsetParent.offsetWidth 
+                    + node.offsetWidth + 'px';
+                break;
+              case 'bottom':
+                node.style.top = node.parentNode.offsetHeight 
+                    + node.offsetHeight + 'px';
+                break;
+              default:
+                node.style[Math.random() >= 0.5 ? 'left' : 'top'] = '-110%';
+            }
+            //node.style.opacity = 0;
+            node.style.pointerEvents = 'none';
+          } else {
+            node.style.pointerEvents = '';
+            //node.style.opacity = '';
+            //console.log(l, r, t, b);
+            position(node, l, r, t, b);
+          }
+        });
+        //console.groupEnd();
+        //console.groupEnd();
+      }
+
+    })();
+  </script>
+</polymer-element>
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<polymer-element name="polymer-ui-theme-aware" attributes="theme" assetpath="../polymer-ui-theme-aware/">
+  <script>
+    PolymerUI = {
+      validateTheme: function() {
+        var theme = this.theme;
+        if (!theme) {
+          var p = this;
+          while (p && !theme) {
+            theme = p.getAttribute && p.getAttribute('theme');
+            p = p.parentNode || p.host;
+          }
+        }
+        this.activeTheme = this.theme || theme;
+      }
+    };
+    Polymer('polymer-ui-theme-aware', {
+      activeTheme: '',
+      validateTheme: PolymerUI.validateTheme,
+      enteredView: function() {
+        this.validateTheme();
+      },
+      themeChanged: function() {
+        this.activeTheme = this.theme;
+      },
+      activeThemeChanged: function(old) {
+        this.classList.switch(old, this.activeTheme);
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+
+<!--
+/**
+* Polymer UI Elements
+*
+* @module Polymer UI Elements
+*/  
+/**
+ * polymer-ui-icon is a 24x24 glyph expressed as a background-image.
+ *
+ * Example:
+ *
+ *     <polymer-ui-icon src="star.png"></polymer-ui-icon>
+ *
+ * Optionally can use other size like 32x32 by setting the attribute "size" to "32":
+ *
+ *     <polymer-ui-icon src="big_star.png" size="32"></polymer-ui-icon>
+ *
+ * Polymer includes an icon set.  The property "icon" can be used
+ * to specify which icon to use.
+ *
+ * Example:
+ *
+ *     <polymer-ui-icon icon="menu"></polymer-ui-icon>
+ *
+ * @class polymer-ui-icon
+ */
+-->
+
+
+
+<polymer-element name="polymer-ui-icon" extends="polymer-ui-theme-aware" attributes="src size index icon" assetpath="../polymer-ui-icon/">
+  <template>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+@host {
+  * {
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+    background-repeat: no-repeat;
+  }
+
+  .polymer-ui-dark-icon, .polymer-ui-light-theme {
+    background-position: -24px 0;
+  }
+
+  .polymer-ui-light-icon, .polymer-ui-dark-theme {
+    background-position: -72px 0;
+  }
+
+  .polymer-ui-icons {
+    background-image: url(../polymer-ui-icon/action-icons.png);
+  }
+}</style>
+    <content></content>
+  </template>
+  <script>
+    (function() {
+      var icons = [
+       'drawer',
+       'menu',
+       'search',
+       'dropdown',
+       'close',
+       'add',
+       'trash',
+       'refresh',
+       'settings',
+       'dialoga',
+       'left',
+       'right',
+       'down',
+       'up',
+       'grid',
+       'contact',
+       'account',
+       'plus',
+       'time',
+       'marker',
+       'briefcase',
+       'array',
+       'columns',
+       'list',
+       'modules',
+       'quilt',
+       'stream',
+       'maximize',
+       'shrink',
+       'sort',
+       'shortcut',
+       'dialog',
+       'twitter',
+       'facebook',
+       'favorite',
+       'gplus',
+       'filter',
+       'tag',
+       'plusone',
+       'dots'
+      ];
+      var map = {};
+      icons.forEach(function(name, i) {
+        map[name] = i;
+      });
+      icons = map;
+
+      Polymer('polymer-ui-icon', {
+        /**
+         * The URL of an image for the icon.
+         *
+         * @attribute src
+         * @type string
+         * @default ''
+         */
+        src: '',
+        /**
+         * Specifies the size of the icon.
+         *
+         * @attribute size
+         * @type string
+         * @default 24
+         */
+        size: 24,
+        /**
+         * Specifies the icon from the Polymer icon set.
+         *
+         * @attribute icon
+         * @type string
+         * @default ''
+         */
+        icon: '',
+        bx: 0,
+        by: 0,
+        icons: icons,
+        ready: function() {
+          this.sizeChanged();
+        },
+        sizeChanged: function() {
+          this.style.width = this.style.height = this.size + 'px';
+        },
+        iconChanged: function() {
+          this.index = this.icon in icons ? icons[this.icon] : -1;
+        },
+        indexChanged: function() {
+          this.classList.add('polymer-ui-icons');
+          this.by = -this.size * this.index;
+          this.updateIcon();
+        },
+        srcChanged: function() {
+          this.classList.remove('polymer-ui-icons');
+          this.style.backgroundImage = 'url(' + this.src + ')';
+          this.updateIcon();
+        },
+        activeThemeChanged: function(old) {
+          this.super(arguments);
+          this.style.backgroundPosition = '';
+          this.bx = calcThemeOffset(this.activeTheme, this);
+          this.updateIcon();
+        },
+        updateIcon: function() {
+          if (this.src) {
+            this.style.backgroundPosition = 'center';
+            this.style.backgroundSize = this.size + 'px ' + this.size + 'px';
+          } else {
+            this.style.backgroundPosition = (this.bx + 'px') + ' ' + (this.by + 'px');
+          }
+        }
+      });
+      // memoize offset because getComputedStyle is expensive
+      var themes = {};
+      function calcThemeOffset(theme, node) {
+        if (themes[theme] === undefined) {
+          var offset = parseFloat(
+              getComputedStyle(node).backgroundPosition.split(' ').shift());
+          themes[theme] = offset;
+        }
+        return themes[theme]; 
+      }
+    })();
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Toolkitchen Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer UI Elements
+ */
+/**
+ * polymer-ui-menu-item is styled to look like a menu item.  It should be used
+ * in conjunction with polymer-ui-menu or polymer-ui-sibebar-menu.
+ *
+ * Example:
+ *
+ *     <polymer-ui-menu-item icon="settings" label="Settings"></polymer-ui-menu-item>
+ *
+ * @class polymer-ui-menu-item
+ */
+/**
+ * The URL of an image for the icon.
+ *
+ * @attribute src
+ * @type string
+ * @default ''
+ */
+/**
+ * Specifies the icon from the Polymer icon set.
+ *
+ * @attribute icon
+ * @type string
+ * @default ''
+ */
+/**
+ * Specifies the label for the menu item.
+ *
+ * @attribute label
+ * @type string
+ * @default ''
+ */
+-->
+
+
+
+<polymer-element name="polymer-ui-menu-item" extends="polymer-ui-theme-aware" attributes="src label icon item" assetpath="../polymer-ui-menu-item/">
+  <template>
+    <style>/*
+Copyright 2013 The Toolkitchen Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+
+@host { 
+  * {
+    display: block;
+	  box-sizing: border-box;
+	  -moz-box-sizing: border-box;
+	  height: 40px;
+	  line-height: 35px;
+	  font-size: 16px;
+	  padding: 0 10px;
+	  border: 1px solid transparent;
+	  border-radius: 3px;
+	  white-space: nowrap;
+	  cursor: pointer;
+	  opacity: 0.5;
+	}
+
+	*:hover {
+	  opacity: 0.9;
+	}
+	
+	*.polymer-selected, *[active] {
+	  opacity: 1;
+	}
+	
+	.polymer-ui-light-theme.polymer-selected, .polymer-ui-light-theme[active] {
+	  background: #f2f2f2;
+	  border: 1px solid rgba(0, 0, 0, 0.15);
+	}
+	
+	.polymer-ui-dark-theme {
+	  color: #b3b3b3;
+	}
+	
+	.polymer-ui-dark-theme:hover {
+	  color: rgba(255, 255, 255, 0.9);
+	}
+	
+	.polymer-ui-dark-theme.polymer-selected, .polymer-ui-dark-theme[active] {
+	  background-color: #000;
+	  border: 1px solid rgba(255, 255, 255, 0.2);
+	  color: rgba(255, 255, 255, 0.9);
+	}
+	
+	[active].no-active-bg {
+	  background-color: transparent;
+	  border: 1px solid transparent;
+	}
+}
+
+/* icon and label */
+polymer-ui-icon:not([showing]) {
+  display: none !important;
+}
+
+polymer-ui-icon {
+  margin-right: 16px;
+}
+
+#label {
+  vertical-align: middle;
+  padding-right: 20px;
+}
+</style>
+    <polymer-ui-icon src="{{src}}" icon="{{icon}}" showing?="{{icon || src}}"></polymer-ui-icon>
+    <span id="label">{{label}}<content></content></span>
+  </template>
+  <script>
+    Polymer('polymer-ui-menu-item', {
+      label: '',
+      // calc item's offset middle pos instead of using offsetTop/Height 
+      // directly which requires to wait for submenu's collapsing transition to 
+      // complete first before it can return the correct pos.
+      getOffsetMiddle: function() {
+        var p = this.parentNode;
+        if (p) {
+          var i = Array.prototype.indexOf.call(p.items, this);
+          var h = this.getItemHeight();
+          return i * h + h/2 + p.items[0].offsetTop;
+        }
+      },
+      getItemHeight: function() {
+        return this.offsetHeight;
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+-->
+<!--
+/**
+ * The polymer-selection element is used to manage selection state. It has no
+ * visual appearance and is typically used in conjuneciton with another element.
+ * For example, <a href="polymer-selector.html">polymer-selector</a>
+ * use a polymer-selection to manage selection.
+ *
+ * To mark an item as selected, call the select(item) method on 
+ * polymer-selection. Notice that the item itself is an argument to this method.
+ * The polymer-selection element manages selection state for any given set of
+ * items. When an item is selected, the `polymer-select` event is fired.
+ * The attribute "multi" indicates if multiple items can be selected at once.
+ * 
+ * Example:
+ *
+ *     <polymer-element name="selection-example">
+ *        <template>
+ *          <style>
+ *            ::-webkit-distributed(> .selected) {
+ *              font-weight: bold;
+ *              font-style: italic;
+ *            }
+ *          </style>
+ *          <ul on-tap="{{itemTapAction}}">
+ *            <content></content>
+ *          </ul>
+ *          <polymer-selection id="selection" multi on-polymer-select="{{selectAction}}"></polymer-selection>
+ *        </template>
+ *        <script>
+ *          Polymer('selection-example', {
+ *            itemTapAction: function(e) {
+ *              this.$.selection.select(e.target);
+ *            },
+ *            selectAction: function(e, detail) {
+ *              detail.item.classList.toggle('selected', detail.isSelected);
+ *            }
+ *          });
+ *        </script>
+ *     </polymer-element>
+ *
+ *     <selection-example>
+ *       <li>Red</li>
+ *       <li>Green</li>
+ *       <li>Blue</li>
+ *     </selection-example>
+ *
+ * @class polymer-selection
+ */
+ /**
+ * Fired when an item's selection state is changed. This event is fired both
+ * when an item is selected or deselected. The `isSelected` detail property
+ * contains the selection state.
+ * 
+ * @event polymer-select
+ * @param {Object} detail
+ *   @param {boolean} detail.isSelected true for selection and false for deselection
+ *   @param {Object} detail.item the item element
+ */
+-->
+<polymer-element name="polymer-selection" attributes="multi" assetpath="../polymer-elements/polymer-selection/">
+  <template>
+    <style>
+      @host {
+        * {
+          display: none !important;
+        }
+      }
+    </style>
+  </template>
+  <script>
+    Polymer('polymer-selection', {
+      /**
+       * If true, multiple selections are allowed.
+       *
+       * @attribute multi
+       * @type boolean
+       * @default false
+       */
+      multi: false,
+      ready: function() {
+        this.clear();
+      },
+      clear: function() {
+        this.selection = [];
+      },
+      /**
+       * Retrieves the selected item(s).
+       * @method getSelection
+       * @returns Returns the selected item(s). If the multi property is true,
+       * getSelection will return an array, otherwise it will return 
+       * the selected item or undefined if there is no selection.
+      */
+      getSelection: function() {
+        return this.multi ? this.selection : this.selection[0];
+      },
+      /**
+       * Indicates if a given item is selected.
+       * @method isSelected
+       * @param {any} item The item whose selection state should be checked.
+       * @returns Returns true if `item` is selected.
+      */
+      isSelected: function(item) {
+        return this.selection.indexOf(item) >= 0;
+      },
+      setItemSelected: function(item, isSelected) {
+        if (item) {
+          if (isSelected) {
+            this.selection.push(item);
+          } else {
+            var i = this.selection.indexOf(item);
+            if (i >= 0) {
+              this.selection.splice(i, 1);
+            }
+          }
+          this.fire("polymer-select", {isSelected: isSelected, item: item});
+        }
+      },
+      /**
+       * Set the selection state for a given `item`. If the multi property
+       * is true, then the selected state of `item` will be toggled; otherwise
+       * the `item` will be selected.
+       * @method select
+       * @param {any} item: The item to select.
+      */
+      select: function(item) {
+        if (this.multi) {
+          this.toggle(item);
+        } else if (this.getSelection() !== item) {
+          this.setItemSelected(this.getSelection(), false);
+          this.setItemSelected(item, true);
+        }
+      },
+      /**
+       * Toggles the selection state for `item`.
+       * @method toggle
+       * @param {any} item: The item to toggle.
+      */
+      toggle: function(item) {
+        this.setItemSelected(item, !this.isSelected(item));
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-selector is used to manage a list of elements that can be selected.
+ * The attribute "selected" indicates which item element is being selected.
+ * The attribute "multi" indicates if multiple items can be selected at once.
+ * Tapping on the item element would fire "polymer-activate" event. Use
+ * "polymer-select" event to listen for selection changes.
+ *
+ * Example:
+ *
+ *     <polymer-selector selected="0">
+ *       <div>Item 1</div>
+ *       <div>Item 2</div>
+ *       <div>Item 3</div>
+ *     </polymer-selector>
+ *
+ * polymer-selector is not styled.  So one needs to use "polymer-selected" CSS
+ * class to style the selected element.
+ * 
+ *     <style>
+ *       .item.polymer-selected {
+ *         background: #eee;
+ *       }
+ *     </style>
+ *     ...
+ *     <polymer-selector>
+ *       <div class="item">Item 1</div>
+ *       <div class="item">Item 2</div>
+ *       <div class="item">Item 3</div>
+ *     </polymer-selector>
+ *
+ * @class polymer-selector
+ */
+/**
+ * Fired when an item's selection state is changed. This event is fired both
+ * when an item is selected or deselected. The `isSelected` detail property
+ * contains the selection state.
+ * 
+ * @event polymer-select
+ * @param {Object} detail
+ *   @param {boolean} detail.isSelected true for selection and false for deselection
+ *   @param {Object} detail.item the item element
+ */
+/**
+ * Fired when an item element is tapped.
+ * 
+ * @event polymer-activate
+ * @param {Object} detail
+ *   @param {Object} detail.item the item element
+ */
+-->
+
+
+<polymer-element name="polymer-selector" attributes="selected multi valueattr selectedClass selectedProperty selectedItem selectedModel notap target itemsSelector activateEvent" assetpath="../polymer-elements/polymer-selector/">
+  <template>
+    <polymer-selection id="selection" multi="{{multi}}" on-polymer-select="{{selectionSelect}}"></polymer-selection>
+    <content id="items" select="*"></content>
+  </template>
+  <script>
+    Polymer('polymer-selector', {
+      /**
+       * Gets or sets the selected element.  Default to use the index
+       * of the item element.
+       *
+       * If you want a specific attribute value of the element to be
+       * used instead of index, set "valueattr" to that attribute name.
+       *
+       * Example:
+       *
+       *     <polymer-selector valueattr="label" selected="foo">
+       *       <div label="foo"></div>
+       *       <div label="bar"></div>
+       *       <div label="zot"></div>
+       *     </polymer-selector>
+       *
+       * In multi-selection this should be an array of values.
+       *
+       * Example:
+       *
+       *     <polymer-selector id="selector" valueattr="label" multi>
+       *       <div label="foo"></div>
+       *       <div label="bar"></div>
+       *       <div label="zot"></div>
+       *     </polymer-selector>
+       *
+       *     this.$.selector.selected = ['foo', 'zot'];
+       *
+       * @attribute selected
+       * @type Object
+       * @default null
+       */
+      selected: null,
+      /**
+       * If true, multiple selections are allowed.
+       *
+       * @attribute multi
+       * @type boolean
+       * @default false
+       */
+      multi: false,
+      /**
+       * Specifies the attribute to be used for "selected" attribute.
+       *
+       * @attribute valueattr
+       * @type string
+       * @default 'name'
+       */
+      valueattr: 'name',
+      /**
+       * Specifies the CSS class to be used to add to the selected element.
+       * 
+       * @attribute selectedClass
+       * @type string
+       * @default 'polymer-selected'
+       */
+      selectedClass: 'polymer-selected',
+      /**
+       * Specifies the property to be used to set on the selected element
+       * to indicate its active state.
+       *
+       * @attribute selectedProperty
+       * @type string
+       * @default 'active'
+       */
+      selectedProperty: 'active',
+      /**
+       * Returns the currently selected element. In multi-selection this returns
+       * an array of selected elements.
+       * 
+       * @attribute selectedItem
+       * @type Object
+       * @default null
+       */
+      selectedItem: null,
+      /**
+       * In single selection, this returns the model associated with the
+       * selected element.
+       * 
+       * @attribute selectedModel
+       * @type Object
+       * @default null
+       */
+      selectedModel: null,
+      /**
+       * The target element that contains items.  If this is not set 
+       * polymer-selector is the container.
+       * 
+       * @attribute target
+       * @type Object
+       * @default null
+       */
+      target: null,
+      /**
+       * This can be used to query nodes from the target node to be used for 
+       * selection items.  Note this only works if the 'target' property is set.
+       *
+       * Example:
+       *
+       *     <polymer-selector target="{{$.myForm}}" itemsSelector="input[type=radio]"></polymer-selector>
+       *     <form id="myForm">
+       *       <label><input type="radio" name="color" value="red"> Red</label> <br>
+       *       <label><input type="radio" name="color" value="green"> Green</label> <br>
+       *       <label><input type="radio" name="color" value="blue"> Blue</label> <br>
+       *       <p>color = {{color}}</p>
+       *     </form>
+       * 
+       * @attribute itemSelector
+       * @type string
+       * @default ''
+       */
+      itemsSelector: '',
+      /**
+       * The event that would be fired from the item element to indicate
+       * it is being selected.
+       *
+       * @attribute activateEvent
+       * @type string
+       * @default 'tap'
+       */
+      activateEvent: 'tap',
+      notap: false,
+      ready: function() {
+        this.activateListener = this.activateHandler.bind(this);
+        this.observer = new MutationObserver(this.updateSelected.bind(this));
+        if (!this.target) {
+          this.target = this;
+        }
+      },
+      get items() {
+        var nodes = this.target !== this ? (this.itemsSelector ? 
+            this.target.querySelectorAll(this.itemsSelector) : 
+                this.target.children) : this.$.items.getDistributedNodes();
+        return Array.prototype.filter.call(nodes || [], function(n) {
+          return n && n.localName !== 'template';
+        });
+      },
+      targetChanged: function(old) {
+        if (old) {
+          this.removeListener(old);
+          this.observer.disconnect();
+        }
+        if (this.target) {
+          this.addListener(this.target);
+          this.observer.observe(this.target, {childList: true});
+        }
+      },
+      addListener: function(node) {
+        node.addEventListener(this.activateEvent, this.activateListener);
+      },
+      removeListener: function(node) {
+        node.removeEventListener(this.activateEvent, this.activateListener);
+      },
+      get selection() {
+        return this.$.selection.getSelection();
+      },
+      selectedChanged: function() {
+        this.updateSelected();
+      },
+      updateSelected: function() {
+        this.validateSelected();
+        if (this.multi) {
+          this.clearSelection();
+          this.selected && this.selected.forEach(function(s) {
+            this.valueToSelection(s);
+          }, this);
+        } else {
+          this.valueToSelection(this.selected);
+        }
+      },
+      validateSelected: function() {
+        // convert to an array for multi-selection
+        if (this.multi && !Array.isArray(this.selected) && 
+            this.selected !== null && this.selected !== undefined) {
+          this.selected = [this.selected];
+        }
+      },
+      clearSelection: function() {
+        if (this.multi) {
+          this.selection.slice().forEach(function(s) {
+            this.$.selection.setItemSelected(s, false);
+          }, this);
+        } else {
+          this.$.selection.setItemSelected(this.selection, false);
+        }
+        this.selectedItem = null;
+        this.$.selection.clear();
+      },
+      valueToSelection: function(value) {
+        var item = (value === null || value === undefined) ? 
+            null : this.items[this.valueToIndex(value)];
+        this.$.selection.select(item);
+      },
+      updateSelectedItem: function() {
+        this.selectedItem = this.selection;
+      },
+      selectedItemChanged: function() {
+        if (this.selectedItem) {
+          var t = this.selectedItem.templateInstance;
+          this.selectedModel = t ? t.model : undefined;
+        } else {
+          this.selectedModel = null;
+        }
+      },
+      valueToIndex: function(value) {
+        // find an item with value == value and return it's index
+        for (var i=0, items=this.items, c; (c=items[i]); i++) {
+          if (this.valueForNode(c) == value) {
+            return i;
+          }
+        }
+        // if no item found, the value itself is probably the index
+        return value;
+      },
+      valueForNode: function(node) {
+        return node[this.valueattr] || node.getAttribute(this.valueattr);
+      },
+      // events fired from <polymer-selection> object
+      selectionSelect: function(e, detail) {
+        this.updateSelectedItem();
+        if (detail.item) {
+          this.applySelection(detail.item, detail.isSelected)
+        }
+      },
+      applySelection: function(item, isSelected) {
+        if (this.selectedClass) {
+          item.classList.toggle(this.selectedClass, isSelected);
+        }
+        if (this.selectedProperty) {
+          item[this.selectedProperty] = isSelected;
+        }
+      },
+      // event fired from host
+      activateHandler: function(e) {
+        if (!this.notap) {
+          var i = this.findDistributedTarget(e.target, this.items);
+          if (i >= 0) {
+            var item = this.items[i];
+            var s = this.valueForNode(item) || i;
+            if (this.multi) {
+              if (this.selected) {
+                this.addRemoveSelected(s);
+              } else {
+                this.selected = [s];
+              }
+            } else {
+              this.selected = s;
+            }
+            this.asyncFire('polymer-activate', {item: item});
+          }
+        }
+      },
+      addRemoveSelected: function(value) {
+        var i = this.selected.indexOf(value);
+        if (i >= 0) {
+          this.selected.splice(i, 1);
+        } else {
+          this.selected.push(value);
+        }
+        this.valueToSelection(value);
+      },
+      findDistributedTarget: function(target, nodes) {
+        // find first ancestor of target (including itself) that
+        // is in nodes, if any
+        while (target && target != this) {
+          var i = Array.prototype.indexOf.call(nodes, target);
+          if (i >= 0) {
+            return i;
+          }
+          target = target.parentNode;
+        }
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer UI Elements
+ */
+/**
+ * polymer-ui-menu is a polymer-selector with theme propagation.  It styles to look like 
+ * a menu and should be used in conjunction with polymer-ui-menu-item.
+ *
+ * Example:
+ * 
+ *     <polymer-ui-menu selected="0">
+ *       <polymer-ui-menu-item icon="settings" label="Settings"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="dialog" label="Dialog"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="search" label="Search"></polymer-ui-menu-item>
+ *     </polymer-ui-menu>
+ *
+ * The "selectedItem" property returns the currently selected item.
+ *
+ * Example:
+ *
+ *     <polymer-ui-menu selected="0" selectedItem="{{item}}">
+ *       <polymer-ui-menu-item icon="settings" label="Settings"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="dialog" label="Dialog"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="search" label="Search"></polymer-ui-menu-item>
+ *     </polymer-ui-menu>
+ *
+ *     <div>selected label: {{item.label}}</div>
+ *
+ * The event "polymer-select" can also be used to listen for selection change.
+ *
+ * Example:
+ *
+ *     <polymer-ui-menu selected="0" on-polymer-select="{{selectAction}}">
+ *       <polymer-ui-menu-item icon="settings" label="Settings"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="dialog" label="Dialog"></polymer-ui-menu-item>
+ *       <polymer-ui-menu-item icon="search" label="Search"></polymer-ui-menu-item>
+ *     </polymer-ui-menu>
+ *
+ *     ...
+ *
+ *     selectAction: function(e, detail) {
+ *       if (detail.isSelected) {
+ *         var selectedItem = detail.item;
+ *         ...
+ *       }
+ *     }
+ *
+ * @class polymer-ui-menu
+ * @extends polymer-selector
+ */
+-->
+
+
+
+<polymer-element name="polymer-ui-menu" extends="polymer-selector" attributes="theme" on-polymer-select="{{selectionChange}}" assetpath="../polymer-ui-menu/">
+  <template>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+
+@host {
+  * {
+    /* technical */
+    display: block;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    /* size */
+    padding: 0.4em;
+    font-weight: bold;
+  }
+
+  .polymer-ui-light-theme {
+    color: #333333;
+  }
+
+  .polymer-ui-dark-theme {
+    background: -webkit-linear-gradient(-60deg, #3d3d3d, #353535);
+    background: -moz-linear-gradient(-60deg, #3d3d3d, #353535);
+    background: -ms-linear-gradient(-60deg, #3d3d3d, #353535);
+    color: #ededed;
+  }
+}</style>
+    <shadow></shadow>
+  </template>
+  <script>
+    Polymer('polymer-ui-menu', {
+      activeTheme: '',
+      validateTheme: PolymerUI.validateTheme,
+      enteredView: function() {
+        this.validateTheme();
+      },
+      themeChanged: function() {
+        this.activeTheme = this.theme;
+      },
+      activeThemeChanged: function(old) {
+        this.classList.switch(old, this.activeTheme);
+      },
+      selectionChange: function(e, detail) {
+        if (detail.isSelected) {
+          var i = detail.item;
+          // find nested selected item
+          while (i.selectedItem) {
+            i = i.selectedItem;
+          }
+          this.selectedItem = i;
+        }
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer Elements
+ */
+/**
+ * polymer-collapse is used to add collapsible behavior to the
+ * target element.  It adjusts the height or width of the target element
+ * to make the element collapse and expand.
+ *
+ * Example:
+ *
+ *     <button on-click="{{toggle}}">toggle collapse</button>
+ *     <div id="demo">
+ *       ...
+ *     </div>
+ *     <polymer-collapse id="collapse" targetId="demo"></polymer-collapse>
+ *
+ *     ...
+ *
+ *     toggle: function() {
+ *       this.$.collapse.toggle();
+ *     }
+ *
+ * @class polymer-collapse
+ */
+-->
+<polymer-element name="polymer-collapse" attributes="targetId target horizontal closed duration fixedSize size" assetpath="../polymer-elements/polymer-collapse/">
+  <template>
+    <style polymer-scope="controller">/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+.polymer-collapse-closed {
+  display: none;
+}</style>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+.polymer-collapse-closed {
+  display: none;
+}</style>
+    <style>
+      @host {
+        * {
+          display: none;
+        }
+      }
+    </style>
+  </template>
+  <script>
+    Polymer('polymer-collapse', {
+      /**
+       * The id of the target element.
+       *
+       * @attribute targetId
+       * @type string
+       * @default ''
+       */
+      targetId: '',
+      /**
+       * The target element.
+       *
+       * @attribute target
+       * @type object
+       * @default null
+       */
+      target: null,
+      /**
+       * If true, the orientation is horizontal; otherwise is vertical.
+       *
+       * @attribute horizontal
+       * @type boolean
+       * @default false
+       */
+      horizontal: false,
+      /**
+       * If true, the target element is hidden/collapsed.
+       *
+       * @attribute closed
+       * @type boolean
+       * @default false
+       */
+      closed: false,
+      /**
+       * Collapsing/expanding animation duration in second.
+       *
+       * @attribute duration
+       * @type number
+       * @default 0.33
+       */
+      duration: 0.33,
+      /**
+       * If true, the size of the target element is fixed and is set
+       * on the element.  Otherwise it will try to 
+       * use auto to determine the natural size to use
+       * for collapsing/expanding.
+       *
+       * @attribute fixedSize
+       * @type boolean
+       * @default false
+       */
+      fixedSize: false,
+      size: null,
+      enteredView: function() {
+        this.installControllerStyles();
+        this.inDocument = true;
+        this.async(function() {
+          this.afterInitialUpdate = true;
+        });
+      },
+      leftView: function() {
+        this.removeListeners(this.target);
+      },
+      targetIdChanged: function() {
+        var p = this.parentNode;
+        while (p.parentNode) {
+          p = p.parentNode;
+        }
+        this.target = p.querySelector('#' + this.targetId);
+      },
+      targetChanged: function(old) {
+        if (old) {
+          this.removeListeners(old);
+        }
+        this.horizontalChanged();
+        this.isTargetReady = !!this.target;
+        if (this.target) {
+          this.target.style.overflow = 'hidden';
+          this.addListeners(this.target);
+          // set polymer-collapse-closed class initially to hide the target
+          this.toggleClosedClass(true);
+        }
+        // don't need to update if the size is already set and it's opened
+        if (!this.fixedSize || !this.closed) {
+          this.update();
+        }
+      },
+      addListeners: function(node) {
+        this.transitionEndListener = this.transitionEndListener || 
+            this.transitionEnd.bind(this);
+        node.addEventListener('webkitTransitionEnd', this.transitionEndListener);
+        node.addEventListener('transitionend', this.transitionEndListener);
+      },
+      removeListeners: function(node) {
+        node.removeEventListener('webkitTransitionEnd', this.transitionEndListener);
+        node.removeEventListener('transitionend', this.transitionEndListener);
+      },
+      horizontalChanged: function() {
+        this.dimension = this.horizontal ? 'width' : 'height';
+      },
+      closedChanged: function() {
+        this.update();
+      },
+      /** 
+       * Toggle the closed state of the collapsible.
+       *
+       * @method toggle
+       */
+      toggle: function() {
+        this.closed = !this.closed;
+      },
+      setTransitionDuration: function(duration) {
+        var s = this.target.style;
+        s.webkitTransition = s.transition = duration ? 
+            (this.dimension + ' ' + duration + 's') : null;
+        if (duration === 0) {
+          this.async('transitionEnd');
+        }
+      },
+      transitionEnd: function() {
+        if (!this.closed && !this.fixedSize) {
+          this.updateSize('auto', null);
+        }
+        this.setTransitionDuration(null);
+        this.toggleClosedClass(this.closed);
+      },
+      toggleClosedClass: function(add) {
+        this.hasClosedClass = add;
+        this.target.classList.toggle('polymer-collapse-closed', add);
+      },
+      updateSize: function(size, duration, forceEnd) {
+        if (duration) {
+          this.calcSize();
+        }
+        this.setTransitionDuration(duration);
+        var s = this.target.style;
+        var nochange = s[this.dimension] === size;
+        s[this.dimension] = size;
+        // transitonEnd will not be called if the size has not changed
+        if (forceEnd && nochange) {
+          this.transitionEnd();
+        }
+      },
+      update: function() {
+        if (!this.target || !this.inDocument) {
+          return;
+        }
+        if (!this.isTargetReady) {
+          this.targetChanged(); 
+        }
+        this.horizontalChanged();
+        this[this.closed ? 'hide' : 'show']();
+      },
+      calcSize: function() {
+        return this.target.getBoundingClientRect()[this.dimension] + 'px';
+      },
+      getComputedSize: function() {
+        return getComputedStyle(this.target)[this.dimension];
+      },
+      show: function() {
+        this.toggleClosedClass(false);
+        // for initial update, skip the expanding animation to optimize
+        // performance e.g. skip calcSize
+        if (!this.afterInitialUpdate) {
+          this.transitionEnd();
+          return;
+        }
+        if (!this.fixedSize) {
+          this.updateSize('auto', null);
+          var s = this.calcSize();
+          this.updateSize(0, null);
+        }
+        this.async(function() {
+          this.updateSize(this.size || s, this.duration, true);
+        });
+      },
+      hide: function() {
+        // don't need to do anything if it's already hidden
+        if (this.hasClosedClass && !this.fixedSize) {
+          return;
+        }
+        if (this.fixedSize) {
+          // save the size before hiding it
+          this.size = this.getComputedSize();
+        } else {
+          this.updateSize(this.calcSize(), null);
+        }
+        this.async(function() {
+          this.updateSize(0, this.duration);
+        });
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Toolkitchen Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer UI Elements
+ */
+/**
+ * polymer-ui-submenu-item is a menu-item that can contains other menu-items.
+ * It should be used in conjunction with polymer-ui-menu or 
+ * polymer-ui-sibebar-menu.
+ *
+ * Example:
+ *
+ *     <polymer-ui-menu selected="0">
+ *       <polymer-ui-submenu-item icon="settings" label="Topics">
+ *         <polymer-ui-menu-item label="Topics 1"></polymer-ui-menu-item>
+ *         <polymer-ui-menu-item label="Topics 2"></polymer-ui-menu-item>
+ *       </polymer-ui-submenu-item>
+ *       <polymer-ui-submenu-item icon="settings" label="Favorites">
+ *         <polymer-ui-menu-item label="Favorites 1"></polymer-ui-menu-item>
+ *         <polymer-ui-menu-item label="Favorites 2"></polymer-ui-menu-item>
+ *         <polymer-ui-menu-item label="Favorites 3"></polymer-ui-menu-item>
+ *       </polymer-ui-submenu-item>
+ *     </polymer-ui-menu>
+ *
+ * @class polymer-ui-submenu-item
+ * @extends polymer-ui-menu-item
+ */
+-->
+
+
+
+
+
+<polymer-element name="polymer-ui-submenu-item" extends="polymer-ui-menu-item" attributes="active selected selectedItem" assetpath="../polymer-ui-submenu-item/">
+  <template>
+    <style>/*
+Copyright 2013 The Toolkitchen Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+
+@host { 
+  * {
+    display: block;
+  }
+}
+
+/* menu */
+#menu {
+  margin-left: 44px;
+  height: 0;
+  /* override @host style on polymer-ui-menu */
+  background-image: none !important;
+  padding: 0 !important;
+}
+</style>
+    <polymer-ui-menu-item id="item" src="{{src}}" label="{{label}}" icon="{{icon}}" active?="{{active}}" on-tap="{{activate}}">
+      <content select=".item-content"></content>
+    </polymer-ui-menu-item>
+    <polymer-ui-menu id="menu" selected="{{selected}}" selecteditem="{{selectedItem}}">
+      <content></content>
+    </polymer-ui-menu>
+    <polymer-collapse targetid="menu" closed="{{collapsed}}"></polymer-collapse>
+  </template>
+  <script>
+    Polymer('polymer-ui-submenu-item', {
+      active: false,
+      collapsed: true,
+      get items() {
+        return this.$.menu.items;
+      },
+      hasItems: function() {
+        return !!this.items.length;
+      },
+      unselectAllItems: function() {
+        this.$.menu.selected = null;
+        this.$.menu.clearSelection();
+      },
+      activeChanged: function() {
+        if (this.hasItems()) {
+          this.collapsed = !this.active;
+        }
+        if (!this.active) {
+          this.unselectAllItems();
+        }
+        this.$.item.classList.toggle('no-active-bg', this.hasItems());
+      },
+      activate: function() {
+        if (this.hasItems() && this.active) {
+          this.collapsed = !this.collapsed;
+          this.unselectAllItems();
+          this.fire("polymer-select", {isSelected: true, item: this});
+        }
+      },
+      getItemHeight: function() {
+        return this.$ && this.$.item && this.$.item.offsetHeight;
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+
+<!--
+/**
+ * @module Polymer UI Elements
+ */
+/**
+ * polymer-ui-toolbar is a horizontal bar containing elements that can perform actions.
+ *
+ * Example:
+ *
+ *     <polymer-ui-toolbar>
+ *       <polymer-ui-icon-button src="menu.png" on-click="{{menuAction}}"></polymer-ui-icon-button>
+ *       <div flex>Title</div>
+ *       <polymer-ui-icon-button src="more.png" on-click="{{moreAction}}"></polymer-ui-icon-button>
+ *     </polymer-ui-toolbar>
+ *
+ * polymer-ui-toolbar can adopt to smaller screen size.  If the attribute "responsive" is set
+ * and the screen size is less than the responsiveWidth (default to 800px), the toolbar will
+ * be moved to the bottom of the page.
+ *
+ * Example:
+ *
+ *     <polymer-ui-toolbar>
+ *       <polymer-ui-icon-button icon="menu"></polymer-ui-icon-button>
+ *       <div flex>Title</div>
+ *       <polymer-ui-toolbar responsive>
+ *         <polymer-ui-icon-button icon="add"></polymer-ui-icon-button>
+ *         <polymer-ui-icon-button icon="trash"></polymer-ui-icon-button>
+ *         <polymer-ui-icon-button icon="search"></polymer-ui-icon-button>
+ *       </polymer-ui-toolbar>
+ *     </polymer-ui-toolbar>
+ *
+ * @class polymer-ui-toolbar
+ */
+-->
+
+
+
+
+
+<polymer-element name="polymer-ui-toolbar" extends="polymer-ui-theme-aware" attributes="responsiveWidth" assetpath="../polymer-ui-toolbar/">
+  <template>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+
+@host {
+  * {
+    /* technical */
+    display: block;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    /* border/shadow */
+/*    border-bottom: 1px solid rgba(0, 0, 0, 0.28);*/
+		border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+		/* size */
+    height: 60px;
+    font-size: 21px;
+		font-family: 'Helvetica Neue Medium', 'HelveticaNeue-Medium', Helvetica, sans-serif;
+		position: relative;
+  }
+
+  .polymer-ui-light-theme {
+    background: #f2f2f2 -webkit-linear-gradient(top, rgba(197,197,197,0), rgba(197,197,197,0.15));
+    background: #f2f2f2 -moz-linear-gradient(top, rgba(197,197,197,0), rgba(197,197,197,0.15));
+    background: #f2f2f2 -ms-linear-gradient(top, rgba(197,197,197,0), rgba(197,197,197,0.15));
+    color: #333333;
+  }
+
+  .polymer-ui-dark-theme {
+    background: #444444 none;
+    color: #f3f3f3;
+  }
+  
+  .narrow-layout[responsive] {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.28);
+  }
+}
+
+/* TODO(sorvell): use of !important due to inability to 
+  naturally win over an @host style */
+/*@polyfill @host > polymer-ui-icon-button */
+content::-webkit-distributed(> polymer-ui-icon-button) {
+  margin: 0px 8px 0 8px !important;
+}
+
+/*@polyfill @host > polymer-ui-menu-button */
+content::-webkit-distributed(> polymer-ui-menu-button) {
+  margin: 0px 8px 0 8px !important;
+}
+
+/*@polyfill @host > polymer-ui-toolbar */
+content::-webkit-distributed(> polymer-ui-toolbar) {
+  margin: 0;
+}
+
+/*@polyfill @host > polymer-ui-toolbar:not(.narrow-layout) */
+content::-webkit-distributed(> polymer-ui-toolbar:not(.narrow-layout)) {
+  border: 0;
+  background: transparent none;
+}
+</style>
+    <polymer-flex-layout align="center"></polymer-flex-layout>
+    <polymer-media-query query="max-width: {{responsiveWidth}}" querymatches="{{queryMatches}}"></polymer-media-query>
+    <content></content>
+  </template>
+  <script>
+    Polymer('polymer-ui-toolbar', {
+      responsiveWidth: '800px',
+      queryMatches: false,
+      queryMatchesChanged: function() {
+        this.classList.toggle('narrow-layout', this.queryMatches);
+      }
+    });
+  </script>
+</polymer-element>
+
+<!--
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<!--
+/**
+ * @module Polymer UI Elements
+ */
+/**
+ * polymer-ui-icon-button enables you to place an image centered in a button.
+ *
+ * Example:
+ *
+ *     <polymer-ui-icon-button src="star.png"></polymer-ui-icon-button>
+ *
+ * Polymer includes an icon set.  The property "icon" can be used
+ * to specify which icon to use.
+ *
+ * Example:
+ *
+ *     <polymer-ui-icon-button icon="menu"></polymer-ui-icon-button>
+ *
+ * @class polymer-ui-icon-button
+ */
+-->
+
+
+
+<polymer-element name="polymer-ui-icon-button" extends="polymer-ui-theme-aware" attributes="src index icon active" assetpath="../polymer-ui-icon-button/">
+  <template>
+    <style>/*
+Copyright 2013 The Polymer Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+*/
+@host {
+  * {
+    display: inline-block;
+    box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    width: 38px;
+    height: 38px;
+    background-image: none;
+    border-radius: 2px;
+    padding: 7px;
+    margin: 2px;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+  
+  .outline {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  }
+
+  *:hover, .hover {
+    box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  }
+
+  .selected {
+    background-color: rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+
+  *:active, *.selected:active {
+    background-color: rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 0 rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+  
+  .polymer-ui-dark-theme.outline {
+    background-color: rgba(200, 200, 200, 0.05);
+    box-shadow: 0 0 0 1px rgba(200, 200, 200, 0.1);
+  }
+
+  .polymer-ui-dark-theme:hover, .polymer-ui-dark-theme.hover {
+    background-color: rgba(200, 200, 200, 0.05);
+    box-shadow: 0 1px 0 0 rgba(200, 200, 200, 0.12), 0 0 0 1px rgba(200, 200, 200, 0.1);
+  }
+
+  .polymer-ui-dark-theme.selected {
+    background-color: rgba(220, 220, 220, 0.05);
+    box-shadow: inset 0 1px 0 0 rgba(200, 200, 200, 0.05), 0 0 0 1px rgba(200, 200, 200, 0.12);
+  }
+
+  .polymer-ui-dark-theme:active, .polymer-ui-dark-theme.selected:active {
+    background-color: rgba(200, 200, 200, 0.05);
+    box-shadow: inset 0 1px 0 0 rgba(200, 200, 200, 0.1), 0 0 0 1px rgba(200, 200, 200, 0.12);
+  }
+}
+
+polymer-ui-icon {
+  display: block !important;
+}</style>
+    <polymer-ui-icon src="{{src}}" index="{{index}}" icon="{{icon}}"><content></content></polymer-ui-icon>
+  </template>
+  <script>
+    Polymer('polymer-ui-icon-button', {
+      /**
+       * The URL of an image for the icon.
+       *
+       * @attribute src
+       * @type string
+       * @default ''
+       */
+      src: '',
+      /**
+       * If true, border is placed around the button to indicate
+       * active state.
+       *
+       * @attribute active
+       * @type boolean
+       * @default false
+       */
+      active: false,
+      /**
+       * Specifies the icon from the Polymer icon set.
+       *
+       * @attribute icon
+       * @type string
+       * @default ''
+       */
+      icon: '',
+      /**
+       * If a theme is applied that includes an icon set, the index of the 
+       * icon to display.
+       *
+       * @attribute index
+       * @type number
+       * @default -1
+       */     
+      index: -1,
+      activeChanged: function() {
+        // TODO(sjmiles): sugar this common case
+        this.classList.toggle('selected', this.active);
+      }
+    });
+  </script>
+</polymer-element>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        overflow-x: auto;
+        font-family: Arial, sans-serif;
+      }
+      x-docs {
+        display: block;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body theme="polymer-ui-light-theme">
+    
+    <x-docs url="data.json"></x-docs>
+    
+    <script src="../highlight.js/highlight.pack.js"></script>
+    <polymer-element name="x-docs" attributes="url" assetpath="/">
+      <template>
+        <link rel="stylesheet" href="../highlight.js/styles/default.css">
+        <style>
+          .element {
+            font-size: 21px;
+          }
+          .name {
+            /* typography */
+            color: white;
+            /* font-size: 14px; */
+            font-size: 12px;
+            font-weight: bold;
+            text-decoration: none;
+            /* colors / effects */
+            background-color: #999;
+            box-shadow: 0 1px 2px 0px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+            cursor: pointer;
+            /* metrics */
+            display: inline-block;
+            padding: 4px 12px 5px 12px;
+            margin: 4px 0;
+            /*padding: 0.35em 1em;
+            margin: 0.3em 0;*/
+          }
+          .method {
+            background-color: #0F9D58;
+          }
+          .event {
+            background-color: #F4B400;
+          }
+          .nattribute {
+            background-color: #4285F4;
+            border-radius: 2px 0 0 2px;
+          }
+          .type {
+            background-color: white;
+            border: 1px solid #4285F4;
+            color: #4285F4;
+            font-weight: bold;
+            border-radius: 0 2px 2px 0;
+            padding-top: 3px;
+            padding-bottom: 4px;
+          }
+          .header {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-left: none;
+            border-right: none;
+            padding: 0 16px;
+            line-height: 75px;
+          }
+          .ntitle {
+            font-size: 13px;
+            font-weight: bold;
+            margin: 8px 0;
+          }
+          .box {
+            margin-bottom: 40px;
+          }
+          pre code {
+            font-size: 14px;
+            padding: 12px 13px;
+            max-width: 800px;
+            white-space: pre-wrap;
+            overflow: hidden;
+          }
+          a {
+            color: #666;
+            text-decoration: none;
+          }
+          .summary {
+            width: 240px; 
+            padding: 16px;
+          }
+          @media (max-width: 900px) {
+            .summary {
+              display: none;
+            }
+          }
+          #menu {
+            width: 280px;
+          }
+          #docs {
+            overflow-x: auto;
+            background-color: white;
+          }
+          #docsInner {
+            overflow: auto;
+            min-width: 500px;
+          }
+          #fixed {
+            position: fixed;
+            opacity: 0.95;
+            right: 24px;
+            left: 296px;
+            background-color: white;
+            z-index: 1000;
+            display: none;
+          }
+          .animate {
+            -webkit-transition-property: left, top, width, height;
+            -webkit-transition-duration: 0.3s;
+            -webkit-transition-timing-function: ease-out;
+          }
+        </style>
+
+        <polymer-ajax url="{{url}}" response="{{data}}" handleas="json" auto=""></polymer-ajax>
+        <polymer-grid-layout id="grid" on-polymer-grid-layout="{{gridLayout}}"></polymer-grid-layout>
+        
+        <div id="navigation" offscreen="basement" style="overflow-y: scroll;">
+          <polymer-ui-menu selected="0" id="menu">
+            <template repeat="{{classes}}">
+              <polymer-ui-menu-item><a href="#{{name}}">{{name}}</a></polymer-ui-menu-item>
+            </template>
+          </polymer-ui-menu>
+        </div>
+        
+        <div id="docs" flex="" xon-dom-mutation="{{docsNodeChanged}}" on-marked-js-highlight="{{hilight}}">
+          <div id="docsInner" flex="">
+            <div id="fixed">
+              <div class="header">
+                <polymer-ui-icon-button icon="menu" on-tap="{{toggleNav}}" active="{{navOpen}}"></polymer-ui-icon-button>
+                &nbsp;<span id="fixedTopic" class="element"></span>
+              </div>
+            </div>
+            
+            <template repeat="{{class in classes}}">
+              <a id="{{class.name}}" class="element"></a>
+              <div class="header topic">
+                <polymer-ui-icon-button on-tap="{{toggleLayout}}" icon="menu" style="visibility: hidden;"></polymer-ui-icon-button>
+                &nbsp;<span class="element">{{class.name}}</span>
+              </div>
+  
+              <div>
+                <polymer-flex-layout></polymer-flex-layout>
+                
+                <div class="summary">
+                  <section class="box">
+                    <div class="ntitle">Methods</div>
+                    <template repeat="{{class.methods}}">
+                      <span class="name method">{{name}}</span><br>
+                    </template>
+                  </section>
+                   <section class="box">
+                    <div class="ntitle">Attributes</div>
+                    <template repeat="{{class.attributes}}">
+                      <span class="name nattribute">{{name}}</span><br>
+                    </template>
+                  </section>
+                  <section class="box">
+                    <div class="ntitle">Events</div>
+                    <template repeat="{{class.events}}">
+                      <span class="name event">{{name}}</span><br>
+                    </template>
+                  </section>
+                </div>
+                
+                <div flex="">
+                  <div style="padding: 16px;">
+                    <section class="box">
+                      Module<br>
+                      <span class="name">{{class.module}}</span>
+                    </section>
+                    
+                    <section class="box">
+                      <div class="ntitle">Description</div>
+                      <marked-js>{{class.description}}</marked-js>
+                    </section>
+                    
+                    <section class="box">
+                      <div class="ntitle">Methods</div>
+                      <template repeat="{{class.methods}}">
+                        <span class="name method">{{name}}</span>
+                        <marked-js>{{description}}</marked-js>
+                      </template>
+                    </section>
+                    
+                    <section class="box">
+                      <div class="ntitle">Attributes</div>
+                      <template repeat="{{class.attributes}}">
+                        <span class="name nattribute">{{name}}</span><span class="name type">{{type}}</span>
+                        <marked-js>{{description}}</marked-js>
+                        <br>
+                      </template>
+                    </section>
+                    
+                    <section class="box">
+                      <div class="ntitle">Events</div>
+                      <template repeat="{{class.events}}">
+                        <span class="name event">{{name}}</span>
+                        <marked-js>{{description}}</marked-js>
+                        <br>
+                      </template>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+      <script>
+        Polymer('x-docs', {
+          data: null,
+          route: '',
+          layouts: {
+            open: [
+              [1, 2, 2]
+            ],
+            closed: [
+              [2, 2]
+            ],
+          },
+          navOpen: true,
+          ready: function() {
+            window.addEventListener('hashchange', this.parseLocationHash.bind(this));
+            // TODO(sjmiles): manual because flatiron-director didn't work, find out why
+            this.parseLocationHash();
+            // TODO(sjmiles): improve method of configuring grid
+            this.$.grid.nodes = [this.$.navigation, this.$.docs];
+            this.$.grid.layout = this.layouts.open;
+            // TODO(sjmiles): factor this into Base?
+            //this.docsObserver = new MutationObserver(this.docsNodeChanged.bind(this));
+            //this.docsObserver.observe(this.$.docs, {childList: true, subtree: true});
+            // TODO(sjmiles): make onscroll listenable via on-scroll
+            this.$.docs.onscroll = this.docsScroll.bind(this);
+          },
+          onMutation: function(node, listener) {
+            var observer = new MutationObserver(function() {
+              listener.call(this, observer);
+              observer.disconnect();
+            }.bind(this));
+            observer.observe(node, {childList: true, subtree: true});
+          },
+          parseLocationHash: function() {
+            this.route = window.location.hash.slice(1);
+          },
+          gridLayout: function() {
+            // TODO(sjmiles): the 'fixed' header bar is relative to the screen
+            // to position it dynamically we need to know offsetLeft of the
+            // docs panel after the first layout.
+            if (!this.fixedLeft) {
+              this.fixedLeft = this.$.docs.offsetLeft;
+              this.$.fixed.style.display = 'block';
+              this.effectLayout();
+            }
+            this.$.docs.classList.add('animate');
+            this.$.fixed.classList.add('animate');
+          },
+          hilight: function(event, detail, sender) {
+            //console.log('highlight', event.target, sender);
+            detail.code = hljs.highlightAuto(detail.code).value;
+          },
+          docsNodeChanged: function(observer) {
+            // initialize scrolling side-effects
+            this.docsScroll();
+            console.log('docsNodeChanged');
+          },
+          docsScroll: function() {
+            var t = this.$.docs.scrollTop + 80;
+            var hcs = this.$.docsInner.querySelectorAll('.topic');
+            for (var i = 0, hc; hc = hcs[i]; i++) {
+              if (t >= hc.offsetTop && (!hcs[i+1] || t < hcs[i+1].offsetTop)) {
+                var h = hc.querySelector('.element');
+                if (h) {
+                  this.$.fixedTopic.innerText = h.innerText;	
+                }
+                return;
+              }
+            }
+          },
+          routeChanged: function() {
+            var anchor = this.shadowRoot.querySelector('a[id="' + this.route + '"]');
+            if (anchor) {
+              anchor.scrollIntoView();
+            }
+          },
+          toggleNav: function(event, detail, sender) {
+            // TODO(sjmiles): would be nice to automate this common action
+            this.navOpen = !this.navOpen;
+          },
+          navOpenChanged: function() {
+            // TODO(sjmiles): would be nice to automate this common action
+            this.effectLayout();
+          },
+          effectLayout: function() {
+            this.$.grid.layout = this.navOpen ? this.layouts.open : this.layouts.closed;
+            this.$.fixed.style.left = this.navOpen ? this.fixedLeft + 'px' : '0px';
+            // ensure transitions start at the same time (still async)
+            Platform.flush();
+          },
+          dataChanged: function() {
+            // schedule more work when changes here propagate to DOM
+            this.onMutation(this.$.docs, this.docsNodeChanged);
+            // collate raw data for display
+            // construct an array from modules map
+            this.modules = mapdex(this.data.modules);
+            // construct an array from classes map
+            this.classes = mapdex(this.data.classes);
+            // sort class array by name (case insensitive)
+            this.classes.sort(function (a,b) {
+              var an = a.name.toLowerCase(), bn = b.name.toLowerCase();
+              return (an < bn) ? -1	: (an > bn) ? 1	: 0;
+            });
+            // construct an index of classes by module
+            this.modules.forEach(function(m) {
+              m.classNames = Object.keys(m.classes);
+            });
+            // collate classitems by class
+            collate(this.data.classitems, function(item) {
+              return this.data.classes[item.class];
+            }.bind(this), function() {
+              return 'items';
+            });
+            // collate class.items by itemtype
+            this.classes.forEach(function(c) {
+              var itemtype = '';
+              if (c.items) {
+                collate(c.items, function(item) {
+                  itemtype = item.itemtype + 's';
+                  return item.itemtype ? c : null;
+                }, function() {
+                  return itemtype;
+                });
+              }
+            });
+            // filters
+            function mapdex(map) {
+              var a = [];
+              for (var n in map) {
+                a.push(map[n]);
+              }
+              return a;
+            };
+            function collate(list, getCrossIndex, getCollation) {
+              list.forEach(function(item) {
+                var r = getCrossIndex(item);
+                if (r) {
+                  var c = getCollation(r);
+                  (r[c] || (r[c] = [])).push(item);
+                }
+              });
+            };
+          }
+        });
+      </script>
+    </polymer-element>
+  </body>
+</html>
